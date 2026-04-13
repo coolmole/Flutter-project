@@ -10,24 +10,26 @@ class MockApiService {
 
   Future<User> login(String email, String password) async {
     await _delay();
-    if (email == 'student@example.com' && password == '123456') {
+    if (email == 'ajdyreambonanza@gmail.com' && password == '123456') {
       // Mock successful login
       return User(
         email: email,
-        name: "Juan Dela Cruz",
-        course: "B.S. Computer Science",
+        name: "AJ Talorong Reambonanza",
+        course: "Bachelor Of Science in Information Technology",
       );
     }
-    throw Exception("Invalid credentials. Use student@example.com / 123456");
+    throw Exception(
+      "Invalid credentials. Use ajdyreambonanza@gmail.com / 123456",
+    );
   }
 
   Future<List<Grade>> fetchGrades(String email) async {
     await _delay();
-    
+
     // Mock response payload from instructions
     const String mockResponse = '''
     {
-      "student_name": "Juan Dela Cruz",
+      "student_name": "AJ Talorong Reambonanza",
       "subjects": [
         {
           "name": "ITC 130 - Platform Technologies",
@@ -67,7 +69,7 @@ class MockApiService {
 
     final Map<String, dynamic> data = jsonDecode(mockResponse);
     final List<dynamic> subjectsData = data['subjects'];
-    
+
     return subjectsData.map((e) => Grade.fromJson(e)).toList();
   }
 }

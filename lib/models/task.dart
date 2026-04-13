@@ -4,6 +4,7 @@ class TaskItem {
   final String description;
   final DateTime dueDate;
   bool isCompleted;
+  final DateTime? deletedAt;
 
   TaskItem({
     required this.id,
@@ -11,6 +12,7 @@ class TaskItem {
     required this.description,
     required this.dueDate,
     this.isCompleted = false,
+    this.deletedAt,
   });
 
   TaskItem copyWith({
@@ -19,6 +21,7 @@ class TaskItem {
     String? description,
     DateTime? dueDate,
     bool? isCompleted,
+    DateTime? deletedAt,
   }) {
     return TaskItem(
       id: id ?? this.id,
@@ -26,6 +29,7 @@ class TaskItem {
       description: description ?? this.description,
       dueDate: dueDate ?? this.dueDate,
       isCompleted: isCompleted ?? this.isCompleted,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }

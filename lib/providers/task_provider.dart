@@ -17,9 +17,12 @@ class TaskProvider with ChangeNotifier {
     ),
   ];
 
+  final List<TaskItem> _recentlyDeleted = [];
+
   List<TaskItem> get pendingTasks => _tasks.where((t) => !t.isCompleted).toList();
   List<TaskItem> get completedTasks => _tasks.where((t) => t.isCompleted).toList();
   List<TaskItem> get allTasks => _tasks;
+  List<TaskItem> get recentlyDeletedTasks => List.unmodifiable(_recentlyDeleted);
 
   int get pendingCount => pendingTasks.length;
 
@@ -36,8 +39,36 @@ class TaskProvider with ChangeNotifier {
     }
   }
 
+  /// Soft-deletes a task: moves it to the recently deleted list.
   void deleteTask(String id) {
-    _tasks.removeWhere((t) => t.id == id);
+    final index = _tasks.indexWhere((t) => t.id == id);
+    if (index != -1) {
+      final task = _tasks.removeAt(index);
+      _recentlyDeleted.insert(0, task.copyWith(deletedAt: DateTime.now()));
+      notifyListeners();
+    }
+  }
+
+  /// Restores a task from the recently deleted list back to active tasks.
+  void restoreTask(String id) {
+    final index = _recentlyDeleted.indexWhere((t) => t.id == id);
+    if (index != -1) {
+      final task = _recentlyDeleted.removeAt(index);
+      // Restore with deletedAt cleared
+      _tasks.add(task.copyWith(deletedAt: null));
+      notifyListeners();
+    }
+  }
+
+  /// Permanently removes a task from the recently deleted list.
+  void permanentlyDeleteTask(String id) {
+    _recentlyDeleted.removeWhere((t) => t.id == id);
+    notifyListeners();
+  }
+
+  /// Clears all recently deleted tasks.
+  void clearRecentlyDeleted() {
+    _recentlyDeleted.clear();
     notifyListeners();
   }
 
