@@ -1,1 +1,22 @@
-flutter/ephemeral
+# Firebase config files (DON'T commit these!)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+*.json
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.pub/
+.pub-cache/
+
+# Android
+*.iml
+*.gradle
+local.properties
+
+# iOS
+Pods/
+*.xcworkspace
+*.xcuserstate

@@ -1,37 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../models/task.dart';
 
 class TaskProvider with ChangeNotifier {
-  final List<TaskItem> _tasks = [
-    TaskItem(
-      id: "1",
-      title: "Complete Flutter Assignment",
-      description: "Implement the login and dashboard screens with animations.",
-      dueDate: DateTime.now().add(const Duration(days: 1)),
-    ),
-    TaskItem(
-      id: "2",
-      title: "Study for Math Quiz",
-      description: "Review chapters 4 and 5.",
-      dueDate: DateTime.now().add(const Duration(days: 2)),
-    ),
-  ];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
 
+  List<TaskItem> _tasks = [];
   final List<TaskItem> _recentlyDeleted = [];
 
   List<TaskItem> get pendingTasks => _tasks.where((t) => !t.isCompleted).toList();
   List<TaskItem> get completedTasks => _tasks.where((t) => t.isCompleted).toList();
   List<TaskItem> get allTasks => _tasks;
   List<TaskItem> get recentlyDeletedTasks => List.unmodifiable(_recentlyDeleted);
-
   int get pendingCount => pendingTasks.length;
 
-  void addTask(TaskItem task) {
-    _tasks.add(task);
+  String? get _uid => _auth.currentUser?.uid;
+
+  CollectionReference? get _taskCollection => _uid == null
+      ? null
+      : _firestore.collection('users').doc(_uid).collection('tasks');
+
+  TaskProvider() {
+    _auth.authStateChanges().listen((user) {
+      if (user != null) {
+        loadTasks();
+      } else {
+        _clearCachedTasks();
+      }
+    });
+  }
+
+  void _clearCachedTasks() {
+    _tasks.clear();
+    _recentlyDeleted.clear();
     notifyListeners();
   }
 
-  void updateTask(TaskItem updatedTask) {
+  // Load tasks from Firestore
+  Future<void> loadTasks() async {
+    if (_taskCollection == null) return;
+    final snapshot = await _taskCollection!.get();
+    final docs = snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return TaskItem.fromMap(data, doc.id);
+    }).toList();
+
+    _tasks = docs.where((task) => task.deletedAt == null).toList();
+    _recentlyDeleted.clear();
+    _recentlyDeleted.addAll(docs.where((task) => task.deletedAt != null));
+    notifyListeners();
+  }
+
+  Future<void> addTask(TaskItem task) async {
+    if (_taskCollection == null) return;
+    final doc = await _taskCollection!.add(task.toMap());
+    _tasks.add(task.copyWith(id: doc.id));
+    notifyListeners();
+  }
+
+  Future<void> updateTask(TaskItem updatedTask) async {
+    if (_taskCollection == null) return;
+    await _taskCollection!.doc(updatedTask.id).update({
+      'title': updatedTask.title,
+      'description': updatedTask.description,
+      'dueDate': updatedTask.dueDate,
+      'isCompleted': updatedTask.isCompleted,
+    });
     final index = _tasks.indexWhere((t) => t.id == updatedTask.id);
     if (index != -1) {
       _tasks[index] = updatedTask;
@@ -39,43 +75,54 @@ class TaskProvider with ChangeNotifier {
     }
   }
 
-  /// Soft-deletes a task: moves it to the recently deleted list.
-  void deleteTask(String id) {
+  Future<void> deleteTask(String id) async {
+    if (_taskCollection == null) return;
     final index = _tasks.indexWhere((t) => t.id == id);
     if (index != -1) {
       final task = _tasks.removeAt(index);
-      _recentlyDeleted.insert(0, task.copyWith(deletedAt: DateTime.now()));
+      final deletedTask = task.copyWith(deletedAt: DateTime.now());
+      _recentlyDeleted.insert(0, deletedTask);
+      await _taskCollection!.doc(id).update({
+        'deletedAt': Timestamp.fromDate(deletedTask.deletedAt!),
+      });
       notifyListeners();
     }
   }
 
-  /// Restores a task from the recently deleted list back to active tasks.
-  void restoreTask(String id) {
+  Future<void> restoreTask(String id) async {
+    if (_taskCollection == null) return;
     final index = _recentlyDeleted.indexWhere((t) => t.id == id);
     if (index != -1) {
       final task = _recentlyDeleted.removeAt(index);
-      // Restore with deletedAt cleared
-      _tasks.add(task.copyWith(deletedAt: null));
+      final restored = task.copyWith(deletedAt: null);
+      _tasks.add(restored);
+      await _taskCollection!.doc(id).update({'deletedAt': null});
       notifyListeners();
     }
   }
 
-  /// Permanently removes a task from the recently deleted list.
-  void permanentlyDeleteTask(String id) {
+  Future<void> permanentlyDeleteTask(String id) async {
+    if (_taskCollection == null) return;
     _recentlyDeleted.removeWhere((t) => t.id == id);
+    await _taskCollection!.doc(id).delete();
     notifyListeners();
   }
 
-  /// Clears all recently deleted tasks.
-  void clearRecentlyDeleted() {
+  Future<void> clearRecentlyDeleted() async {
+    for (final task in _recentlyDeleted) {
+      await _taskCollection?.doc(task.id).delete();
+    }
     _recentlyDeleted.clear();
     notifyListeners();
   }
 
-  void toggleTaskCompletion(String id) {
+  Future<void> toggleTaskCompletion(String id) async {
+    if (_taskCollection == null) return;
     final index = _tasks.indexWhere((t) => t.id == id);
     if (index != -1) {
-      _tasks[index] = _tasks[index].copyWith(isCompleted: !_tasks[index].isCompleted);
+      final updated = _tasks[index].copyWith(isCompleted: !_tasks[index].isCompleted);
+      _tasks[index] = updated;
+      await _taskCollection!.doc(id).update({'isCompleted': updated.isCompleted});
       notifyListeners();
     }
   }

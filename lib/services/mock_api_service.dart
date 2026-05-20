@@ -13,6 +13,7 @@ class MockApiService {
     if (email == 'ajdyreambonanza@gmail.com' && password == '123456') {
       // Mock successful login
       return User(
+        id: '1',
         email: email,
         name: "AJ Talorong Reambonanza",
         course: "Bachelor Of Science in Information Technology",
